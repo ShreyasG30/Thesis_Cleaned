@@ -1,0 +1,4 @@
+*.lst
+Kratos_Results/
+Dynamic_solution/
+*.venv

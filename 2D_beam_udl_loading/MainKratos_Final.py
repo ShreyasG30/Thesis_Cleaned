@@ -9,19 +9,31 @@ import numpy as np
 import matplotlib.pyplot as plt
 import KratosMultiphysics
 
-# Check for already existing '.npy' files and clean if existing
+# Create a new folder to store all result folders
+kratos_results_folder = "Kratos_Results"
+if not os.path.exists(kratos_results_folder):
+    os.makedirs(kratos_results_folder)
+
+# Create a new folder to store junk files
+junk_folder = os.path.join(kratos_results_folder, "junk")
+if not os.path.exists(junk_folder):
+    os.makedirs(junk_folder)
+
+# Modify the delete_result_folders function to delete folders inside Kratos_Results
 def delete_result_folders():
     """
-    Deletes the folders 'displacement_results' and 'loading_results' from the current working directory.
+    Deletes the folders 'displacement_results', 'loading_results', 'stiffness_results', and 'mass_results' 
+    from the 'Kratos_Results' directory.
     
-    This ensures a clean working environment by removing previous simulationsudo ap result folders.
+    This ensures a clean working environment by removing previous simulation result folders.
     """
     cwd = os.getcwd()  # Get the current working directory
-    folders_to_delete = ["displacement_results", "loading_results","stiffness_results","mass_results"]  # List of folder names to delete
+    kratos_results_path = cwd #os.path.join(cwd, kratos_results_folder)
+    folders_to_delete = ["Kratos_Results"]  # List of folder names to delete
     
     for folder in folders_to_delete:
-        folder_path = os.path.join(cwd, folder)  # Construct the full path to the folder
-        if os.path.exists(folder_path):  # Check if the folder exists
+        folder_path = os.path.join(kratos_results_path, folder)  # Construct the full path to the folder
+        if os.path.exists(folder_path):  # Check if the folder existsA
             shutil.rmtree(folder_path)  # Delete the folder and its contents
             print(f"Deleted folder: {folder_path}")
         else:
@@ -30,9 +42,8 @@ def delete_result_folders():
 # Call the function to delete existing .npy files
 delete_result_folders()
 
-
 # Generate Random list of 'mu' values for parameterization
-def generate_random_list_of_mu(num_sets=5, min_value=-300.0, max_value=400.0, size=3):
+def generate_random_list_of_mu(num_sets=10, min_value=-300.0, max_value=400.0, size=3):
     """
     Generates a list of modulus value sets with two decimal precision.
     
@@ -69,9 +80,11 @@ def UpdateProjectParameters(parameters, mu):
         dict: Updated parameters with new modulus values.
     """
     # Update the modulus values for each load in the loads_process_list
-    parameters["processes"]["loads_process_list"][0]["Parameters"]["value"].SetDouble(mu[0])
-    parameters["processes"]["loads_process_list"][1]["Parameters"]["value"].SetDouble(mu[1])
-    parameters["processes"]["loads_process_list"][2]["Parameters"]["value"].SetDouble(mu[2])
+    for i in range(len(mu)):
+        if parameters["processes"]["loads_process_list"][i]["Parameters"].Has("value"):
+            parameters["processes"]["loads_process_list"][i]["Parameters"]["value"].SetDouble(mu[i])
+        elif parameters["processes"]["loads_process_list"][i]["Parameters"].Has("modulus"):
+            parameters["processes"]["loads_process_list"][i]["Parameters"]["modulus"].SetDouble(mu[i])
     return parameters
 
 
@@ -138,7 +151,7 @@ def CreateAnalysisStageWithFlushInstance(cls, global_model, parameters):
             M_global = self.AssembleGlobalLumpedMassMatrix(model_part)
 
             # Save the global force vector to a file
-            output_folder = "loading_results"
+            output_folder = os.path.join(kratos_results_folder, "loading_results")
             if not os.path.exists(output_folder):
                 os.makedirs(output_folder)
             force_vector_file_path = os.path.join(output_folder, f"global_force_vector_{self.modulus_values}.npy")
@@ -146,7 +159,7 @@ def CreateAnalysisStageWithFlushInstance(cls, global_model, parameters):
             print(f"Force vector saved to: {force_vector_file_path}")
 
             # Save the global stiffness matrix to a file
-            stiff_output_folder = "stiffness_results"
+            stiff_output_folder = os.path.join(kratos_results_folder, "stiffness_results")
             if not os.path.exists(stiff_output_folder):
                 os.makedirs(stiff_output_folder)
             stiffness_matrix_file_path = os.path.join(stiff_output_folder, f"stiffness_matrix_{self.modulus_values}.npy")
@@ -154,7 +167,7 @@ def CreateAnalysisStageWithFlushInstance(cls, global_model, parameters):
             print(f"Stiffness matrix saved to: {stiffness_matrix_file_path}")
 
             # Save the global mass matrix to a file
-            mass_output_folder = "mass_results"
+            mass_output_folder = os.path.join(kratos_results_folder, "mass_results")
             if not os.path.exists(mass_output_folder):
                 os.makedirs(mass_output_folder)
             mass_matrix_file_path = os.path.join(mass_output_folder, f"mass_matrix_{self.modulus_values}.npy")
@@ -280,9 +293,9 @@ def CreateAnalysisStageWithFlushInstance(cls, global_model, parameters):
             Finalizes the simulation, saving nodal displacements to a file in a new folder.
             """
             super().Finalize()
-            
+
             # Create a new folder to store the displacement files
-            output_folder = "displacement_results"
+            output_folder = os.path.join(kratos_results_folder, "displacement_results")
             if not os.path.exists(output_folder):  # Check if the folder already exists
                 os.makedirs(output_folder)  # Create the folder if it doesn't exist
             
@@ -294,7 +307,6 @@ def CreateAnalysisStageWithFlushInstance(cls, global_model, parameters):
             np.save(file_path, displacements_array)
             print(f"Displacements saved to: {file_path}")
             print(f"Displacements shape: {displacements_array.shape}")
-
 
     return AnalysisStageWithFlush(global_model, parameters)
 
@@ -327,4 +339,34 @@ if __name__ == "__main__":
 
         # Optional delay to avoid performance issues
         time.sleep(1)
+    # Move .lst files and output folders to junk folder after all simulations
+    time.sleep(1)  # Give system time to release file handles
+    lst_files = [f for f in os.listdir() if f.endswith('.lst')]
+    for lst_file in lst_files:
+        try:
+            dest_path = os.path.join(junk_folder, lst_file)
+            if os.path.exists(dest_path):
+                os.remove(dest_path)  # Remove if file already exists in destination
+            shutil.move(lst_file, dest_path)
+            print(f"Moved {lst_file} to junk folder")
+        except Exception as e:
+            print(f"Error moving {lst_file}: {e}")
+            try:
+                shutil.copy2(lst_file, os.path.join(junk_folder, lst_file))
+                os.remove(lst_file)
+                print(f"Successfully copied and removed {lst_file}")
+            except Exception as e2:
+                print(f"Failed to copy {lst_file}: {e2}")
+
+    output_folders = ["gid_output", "vtk_output"]
+    for folder in output_folders:
+        if os.path.exists(folder):
+            try:
+                target_folder = os.path.join(junk_folder, folder)
+                shutil.move(folder, target_folder)
+                print(f"Moved {folder} to junk folder")
+            except Exception as e:
+                print(f"Error moving {folder}: {e}")
+        else:
+            print(f"{folder} does not exist")
     path = os.getcwd()
