@@ -43,7 +43,7 @@ def delete_result_folders():
 delete_result_folders()
 
 # Generate Random list of 'mu' values for parameterization
-def generate_random_list_of_mu(num_sets=10, min_value=-300.0, max_value=400.0, size=3):
+def generate_random_list_of_mu(num_sets=1, min_value=-300.0, max_value=400.0, size=3):
     """
     Generates a list of modulus value sets with two decimal precision.
     
