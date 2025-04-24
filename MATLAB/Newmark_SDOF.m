@@ -3,8 +3,8 @@ close all
 clc
 %%
 m=1;
-k=1000;
-c=0.3;
+k=1;
+c=1.9;
 %%
 F_amp=5;
 freq=8;

@@ -4,3 +4,7 @@ Dynamic_solution/
 *.venv
 Linear_static_ROM_old.ipynb
 Untitled-1.ipynb
+Results_figure/
+M_tilde.npy
+K_tilde.npy
+C_tilde.npy
